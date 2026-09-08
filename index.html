@@ -593,6 +593,11 @@
     font-size:0.85rem;
     word-break:break-word;
   }
+  .clickable-card{
+    text-decoration:none;
+    cursor:pointer;
+    display:block;
+  }
   #email-link.copied::after{
     content:"copied!";
     position:absolute;
@@ -795,22 +800,21 @@
     <svg class="title-underline reveal" viewBox="0 0 120 10" xmlns="http://www.w3.org/2000/svg"><path d="M2 6 Q 20 2, 40 6 T 80 6 T 118 5" stroke="#9BDD97" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
     <p class="lede reveal">A few things I've worked on so far.</p>
     <div class="projects-grid reveal">
-      <div class="project-card sticky-note note-pink tilt-a">
-        <span class="project-tag">PROJECT 01</span>
+      <a class="project-card clickable-card sticky-note note-pink tilt-a" href="https://calculator093.netlify.app/" target="_blank" rel="noopener">
+        <span class="project-tag">PROJECT 01 · LIVE</span>
         <h3>Calculator</h3>
         <p>A simple calculator built in Python that shows the basic working principle behind how calculators compute — it takes two numbers and an operator as input, then uses conditional logic to run the right arithmetic operation (add, subtract, multiply, divide) and return the result.</p>
-      </div>
+      </a>
       <div class="project-card sticky-note note-orange tilt-d">
         <span class="project-tag">PROJECT 02</span>
         <h3>Note Website</h3>
         <p>A note-sharing website planned for grade 11 and 12 students in the Science faculty. Due to a lack of notes being supplied so far, the site doesn't have enough content on it yet to be published.</p>
       </div>
-      <div class="project-card sticky-note note-yellow tilt-b">
-        <span class="project-tag">PROJECT 03</span>
+      <a class="project-card clickable-card sticky-note note-yellow tilt-b" href="https://handracer.netlify.app/" target="_blank" rel="noopener">
+        <span class="project-tag">PROJECT 03 · LIVE</span>
         <h3>Hand Racer</h3>
         <p>An HTML-based game where a car on screen is controlled through your webcam — it reads hand movements and moves the car accordingly. Instructions for how to move your hand to control the car are shown on the page, just below the webcam feed.</p>
-        <a class="project-link" href="https://handracer.netlify.app/" target="_blank" rel="noopener">View live project</a>
-      </div>
+      </a>
       <div class="add-project">NEW PROJECTS WILL BE PUBLISHED SOON</div>
     </div>
   </section>
