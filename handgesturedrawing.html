@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hand Gesture Drawing</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #1a1d24;
+    --accent: #7c5cff;
+    --text: #eaeaf0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, #1c1f27, #0b0c10);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 12px 40px;
+  }
+  h1 {
+    margin: 0 0 4px;
+    font-size: 1.8rem;
+    letter-spacing: 0.5px;
+  }
+  h1 span { color: var(--accent); }
+  p.subtitle {
+    margin: 0 0 18px;
+    color: #9a9db0;
+    font-size: 0.95rem;
+    text-align: center;
+    max-width: 560px;
+  }
+  #stage {
+    position: relative;
+    width: min(960px, 96vw);
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+    border: 1px solid #2a2e38;
+  }
+  video { display: none; }
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  #status {
+    position: absolute;
+    top: 10px; right: 12px;
+    background: rgba(0,0,0,0.55);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    z-index: 5;
+  }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:#ff5959; }
+  .dot.on { background:#4dff88; }
+  .legend {
+    display: flex;
+    gap: 22px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .legend div {
+    background: var(--panel);
+    border: 1px solid #2a2e38;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    color: #c7c9d6;
+  }
+  .legend b { color: var(--text); }
+  button {
+    margin-top: 16px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+</style>
+</head>
+<body>
+
+  <h1>Hand Gesture <span>Drawing</span></h1>
+  <p class="subtitle">
+    Point your <b>index finger</b> to draw or pick a color from the palette in the top-left corner.
+    Show an <b>open palm</b> to erase. Everything is drawn right over your live camera feed.
+  </p>
+
+  <div id="stage">
+    <video id="video" playsinline></video>
+    <canvas id="output"></canvas>
+    <div id="status"><span class="dot" id="dot"></span><span id="statusText">starting camera...</span></div>
+  </div>
+
+  <div class="legend">
+    <div>☝️ <b>Index finger up</b> — draw / pick color</div>
+    <div>🖐️ <b>Open palm</b> — erase</div>
+    <div>🎨 Palette — top-left corner</div>
+  </div>
+
+  <button id="clearBtn">Clear Canvas</button>
+
+  <!-- MediaPipe Hands (runs entirely in the browser, no server needed) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <script>
+    const videoElement = document.getElementById('video');
+    const canvasElement = document.getElementById('output');
+    const ctx = canvasElement.getContext('2d');
+    const statusText = document.getElementById('statusText');
+    const dot = document.getElementById('dot');
+
+    const WIDTH = 960, HEIGHT = 720;
+    canvasElement.width = WIDTH;
+    canvasElement.height = HEIGHT;
+
+    // Offscreen canvas that permanently stores the ink (persists across frames)
+    const inkCanvas = document.createElement('canvas');
+    inkCanvas.width = WIDTH;
+    inkCanvas.height = HEIGHT;
+    const inkCtx = inkCanvas.getContext('2d');
+    inkCtx.lineCap = 'round';
+    inkCtx.lineJoin = 'round';
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      inkCtx.clearRect(0, 0, WIDTH, HEIGHT);
+    });
+
+    // ---- Palette (top-left corner) ----
+    const COLORS = ['#ff3b3b', '#3bff6e', '#3b8bff', '#ffe93b', '#c93bff', '#ffffff'];
+    const SWATCH = 55, GAP = 8, PAL_X = 15, PAL_Y = 15;
+    let currentColor = COLORS[0];
+
+    function paletteHit(x, y) {
+      if (y < PAL_Y || y > PAL_Y + SWATCH) return null;
+      for (let i = 0; i < COLORS.length; i++) {
+        const x1 = PAL_X + i * (SWATCH + GAP);
+        const x2 = x1 + SWATCH;
+        if (x >= x1 && x <= x2) return COLORS[i];
+      }
+      return null;
+    }
+
+    function drawPalette() {
+      COLORS.forEach((c, i) => {
+        const x1 = PAL_X + i * (SWATCH + GAP);
+        ctx.fillStyle = c;
+        ctx.fillRect(x1, PAL_Y, SWATCH, SWATCH);
+        ctx.lineWidth = c === currentColor ? 4 : 2;
+        ctx.strokeStyle = c === currentColor ? '#000000' : '#cccccc';
+        ctx.strokeRect(x1, PAL_Y, SWATCH, SWATCH);
+      });
+    }
+
+    // Mirror-aware pixel coords: MediaPipe gives normalized (0-1) landmarks
+    // on the UN-mirrored camera image. We mirror x manually so the drawing
+    // matches what the user sees (like a mirror).
+    function toPixel(lm) {
+      return { x: (1 - lm.x) * WIDTH, y: lm.y * HEIGHT };
+    }
+
+    function fingerUp(lm, tipIdx, pipIdx) {
+      return lm[tipIdx].y < lm[pipIdx].y;
+    }
+
+    let prevPoint = null;
+    let handSeen = false;
+
+    function onResults(results) {
+      ctx.save();
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      // Draw the mirrored camera feed
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(results.image, -WIDTH, 0, WIDTH, HEIGHT);
+      ctx.restore();
+
+      handSeen = !!(results.multiHandLandmarks && results.multiHandLandmarks.length);
+      dot.classList.toggle('on', handSeen);
+      statusText.textContent = handSeen ? 'hand detected' : 'show your hand to the camera';
+
+      if (handSeen) {
+        const lm = results.multiHandLandmarks[0];
+
+        const indexUp = fingerUp(lm, 8, 6);
+        const middleUp = fingerUp(lm, 12, 10);
+        const ringUp = fingerUp(lm, 16, 14);
+        const pinkyUp = fingerUp(lm, 20, 18);
+
+        const tip = toPixel(lm[8]);
+
+        if (indexUp && !middleUp && !ringUp && !pinkyUp) {
+          // Draw / pick color
+          const hit = paletteHit(tip.x, tip.y);
+          if (hit) {
+            currentColor = hit;
+            prevPoint = null;
+          } else {
+            if (!prevPoint) prevPoint = tip;
+            inkCtx.strokeStyle = currentColor;
+            inkCtx.lineWidth = 7;
+            inkCtx.beginPath();
+            inkCtx.moveTo(prevPoint.x, prevPoint.y);
+            inkCtx.lineTo(tip.x, tip.y);
+            inkCtx.stroke();
+            prevPoint = tip;
+          }
+          ctx.beginPath();
+          ctx.fillStyle = currentColor;
+          ctx.arc(tip.x, tip.y, 9, 0, Math.PI * 2);
+          ctx.fill();
+
+        } else if (indexUp && middleUp && ringUp && pinkyUp) {
+          // Open palm = erase around palm center (landmark 9)
+          const palm = toPixel(lm[9]);
+          inkCtx.save();
+          inkCtx.globalCompositeOperation = 'destination-out';
+          inkCtx.beginPath();
+          inkCtx.arc(palm.x, palm.y, 45, 0, Math.PI * 2);
+          inkCtx.fill();
+          inkCtx.restore();
+
+          ctx.beginPath();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.arc(palm.x, palm.y, 45, 0, Math.PI * 2);
+          ctx.stroke();
+          prevPoint = null;
+        } else {
+          prevPoint = null;
+        }
+      } else {
+        prevPoint = null;
+      }
+
+      // Composite persistent ink on top of the video frame
+      ctx.drawImage(inkCanvas, 0, 0, WIDTH, HEIGHT);
+      // Palette always drawn last so it stays visible
+      drawPalette();
+
+      ctx.restore();
+    }
+
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.6
+    });
+    hands.onResults(onResults);
+
+    const camera = new Camera(videoElement, {
+      onFrame: async () => { await hands.send({ image: videoElement }); },
+      width: WIDTH,
+      height: HEIGHT
+    });
+    camera.start().catch(err => {
+      statusText.textContent = 'camera access denied or unavailable';
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
