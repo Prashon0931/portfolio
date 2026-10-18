@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Snowdrift – Open World Driving</title>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#cfe0ef;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
@@ -25,6 +25,7 @@ button{font:inherit;cursor:pointer}
 #shop{position:fixed;inset:0;background:#0d233ad0;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 #panel{background:#eef5fc;color:#17324d;border-radius:18px;padding:22px 26px;width:min(980px,94vw);max-height:92vh;overflow:auto}
 #panel h2{margin:0;font-size:28px}#sub{margin:4px 0 16px;opacity:.75}
+.sec{grid-column:1/-1;font-weight:800;font-size:19px;margin-top:6px}
 #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .card{background:#fff;border-radius:12px;padding:12px;border:2px solid transparent}.card.sel{border-color:#17324d}
 .sw{height:46px;border-radius:8px;margin-bottom:9px}
@@ -33,24 +34,38 @@ button{font:inherit;cursor:pointer}
 .card button{width:100%;padding:9px;border:0;border-radius:8px;background:#17324d;color:#fff;font-weight:700}
 .card button:disabled{background:#b8c6d4;cursor:not-allowed}
 #close{margin-top:16px;padding:11px 22px;border:0;border-radius:999px;background:#17324d;color:#fff;font-weight:700}
+html,body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#touch{display:none}
+body.touch #touch{display:block}
+body.touch #help{display:none}
+body.touch #msg{font-size:30px}
+body.touch #hud{bottom:112px;transform:scale(.8);transform-origin:left bottom}
+body.touch #shopbtn{padding:9px 14px}
+.tb{position:fixed;width:74px;height:74px;border-radius:50%;background:#12304fa6;border:2px solid #ffffff90;color:#fff;font-size:30px;display:flex;align-items:center;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;z-index:5}
+.tb.on{background:#ffe27ae6;color:#12304f}
+#bL{left:16px;bottom:20px}#bR{left:100px;bottom:20px}
+#bU{right:16px;bottom:104px}#bD{right:16px;bottom:20px}
+#bRs{right:100px;bottom:20px;width:54px;height:54px;font-size:20px}
 </style>
 </head>
 <body>
 <div id="help"><div><b>W</b>Accelerate</div><div><b>S</b>Brake / reverse</div><div><b>A</b><b>D</b>Steer left / right</div>
-<div style="margin-top:6px"><b>R</b>Respawn <b style="margin-left:8px">B</b>Shop</div><div style="margin-top:6px">In the air: W front flip, S back flip, A/D barrel roll.<br>Land upside down and the car blows up.<br>Ram a bot car and you both burn.<br>Highway bikes swerve at you: dodge them!<br>Every death halves your coins.</div></div>
+<div style="margin-top:6px"><b>R</b>Respawn <b style="margin-left:8px">B</b>Shop</div><div style="margin-top:6px">In the air: W front flip, S back flip, A/D barrel roll.<br>Land upside down and the car blows up.<br>Ram a bot car and you both burn.<br>Highway bikes swerve at you: dodge them for +50 coins!<br>Every death halves your coins.</div></div>
 <div id="msg"></div>
 <div id="hud"><div id="spd">0<small>km/h</small></div>
 <div id="mult"><div id="mx">x1.0</div><div>Coin multiplier, +0.1 every minute played</div><div id="mbar"><i></i></div><div id="pay"></div></div></div>
 <div id="top"><div id="coins">🪙 <span id="cn">0</span><span id="plus"></span></div><button id="shopbtn">Shop (B)</button></div>
+<div id="touch"><div class="tb" id="bL">◀</div><div class="tb" id="bR">▶</div><div class="tb" id="bU">▲</div><div class="tb" id="bD">▼</div><div class="tb" id="bRs">⟲</div></div>
 <div id="shop"><div id="panel"><h2>Garage</h2><div id="sub"></div><div id="grid"></div><button id="close">Back to driving (B)</button></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
+if(matchMedia("(pointer:coarse)").matches||"ontouchstart" in window)document.body.classList.add("touch");
+renderer.setPixelRatio(Math.min(devicePixelRatio,document.body.classList.contains("touch")?1.5:2));renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;document.body.appendChild(renderer.domElement);
 const scene=new THREE.Scene(),FOG=0xcfe0ef;
-scene.background=new THREE.Color(FOG);scene.fog=new THREE.Fog(FOG,70,330);
+scene.background=new THREE.Color(FOG);scene.fog=new THREE.Fog(FOG,70,300);
 const cam=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.5,600);
 addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()});
 scene.add(new THREE.HemisphereLight(0xe3f0ff,0x8896a8,.95));
@@ -96,7 +111,7 @@ const terrain=new THREE.Mesh(tg,new THREE.MeshLambertMaterial({vertexColors:true
 terrain.receiveShadow=true;terrain.frustumCulled=false;scene.add(terrain);
 let tcx=1e9,tcz=1e9;const TW=SEG+1,hg=new Float32Array(TW*TW),rwa=new Float32Array(TW*TW);
 function updTerrain(x,z){
-  const sx=Math.round(x/50)*50,sz=Math.round(z/50)*50;if(sx===tcx&&sz===tcz)return;tcx=sx;tcz=sz;
+  const sx=Math.round(x/100)*100,sz=Math.round(z/100)*100;if(sx===tcx&&sz===tcz)return;tcx=sx;tcz=sz;
   terrain.position.set(sx,0,sz);const p=tp.array,c=tg.attributes.color.array;
   for(let i=0;i<tp.count;i++){const h=H(base[i*3]+sx,base[i*3+2]+sz);p[i*3+1]=h;hg[i]=h;rwa[i]=RW}
   for(let i=0;i<tp.count;i++){
@@ -170,11 +185,13 @@ function updRoads(x,z){
 /* ---------- cars ---------- */
 const CARS=[
  {id:0,name:'Starter Car',sub:'Rusty hatchback',price:0,rate:10,kmh:50,top:50/3.6,acc:.8,color:0xc9a227,roof:0xf2f2f2},
- {id:1,name:'BMW',sub:'Beginner car',price:100,rate:20,kmh:75,top:75/3.6,acc:.9,color:0x1f5fbf,two:0xf2f2f2,kidney:1},
- {id:2,name:'Audi',sub:'Amateur car',price:500,rate:30,kmh:100,top:100/3.6,acc:1,color:0xb9c0c8,two:0x555d66,rings:1},
- {id:3,name:'Ferrari',sub:'Semi Pro car',price:2000,rate:50,kmh:145,top:145/3.6,acc:1.2,color:0xe10a1a,two:0x111111,low:1,wing:1},
- {id:4,name:'Bugatti',sub:'Pro car',price:5000,rate:80,kmh:200,top:200/3.6,acc:1.5,color:0x1236a8,two:0x0b0d12,slab:0x0b0d12,horse:1},
- {id:5,name:'Doge Car',sub:'God car',price:20000,rate:100,kmh:1000,top:1000/3.6,acc:2.2,mystery:1,color:0xe3a84b,two:0xfff0cf,slab:0xfff0cf,doge:1}
+ {id:1,name:'BMW',sub:'Beginner car',price:500,rate:20,kmh:75,top:75/3.6,acc:.9,color:0x1f5fbf,two:0xf2f2f2,kidney:1},
+ {id:2,name:'Audi',sub:'Amateur car',price:2500,rate:30,kmh:100,top:100/3.6,acc:1,color:0xb9c0c8,two:0x555d66,rings:1},
+ {id:3,name:'Ferrari',sub:'Semi Pro car',price:10000,rate:50,kmh:145,top:145/3.6,acc:1.2,color:0xe10a1a,two:0x111111,low:1,wing:1},
+ {id:4,name:'Bugatti',sub:'Pro car',price:25000,rate:80,kmh:200,top:200/3.6,acc:1.5,color:0x1236a8,two:0x0b0d12,slab:0x0b0d12,horse:1},
+ {id:5,name:'Doge Car',sub:'God car',price:100000,rate:100,kmh:1000,top:1000/3.6,acc:2.2,mystery:1,color:0xe3a84b,two:0xfff0cf,slab:0xfff0cf,doge:1},
+ {id:6,name:'Bobber Bike',sub:'Cruiser',price:12000,rate:60,kmh:75,top:75/3.6,acc:.9,color:0x3b3b3b,two:0xd0d0d0,bike:1,style:0},
+ {id:7,name:'Racing Bike',sub:'Superbike',price:40000,rate:150,kmh:2000,top:2000/3.6,acc:3,color:0xff2a6d,two:0xffffff,bike:1,style:1}
 ];
 function dogeTex(){
   const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');
@@ -218,9 +235,34 @@ function makeCar(s,over){
   }
   return{g,wheels,pivots};
 }
+function makeRide(s){
+  const g=new THREE.Group(),In=new THREE.Group();In.position.y=-.37;g.add(In);
+  const mt=c=>new THREE.MeshLambertMaterial({color:c});
+  const bx=(w,h,d,c,x,y,z,par,rx)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mt(c));m.position.set(x,y,z);if(rx)m.rotation.x=rx;m.castShadow=true;(par||In).add(m);return m};
+  const ball=(r,c,x,y,z)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,10,8),mt(c));m.position.set(x,y,z);m.castShadow=true;In.add(m)};
+  const wh=(w,par,y,z)=>{const gm=new THREE.CylinderGeometry(.38,.38,w,16);gm.rotateZ(Math.PI/2);const m=new THREE.Mesh(gm,mt(0x111111));m.position.set(0,y,z);m.castShadow=true;par.add(m);return m};
+  const C=s.color,T=s.two,sp=s.style,fz=sp?.85:1.05,wheels=[],pivots=[];
+  wheels.push(wh(sp?.22:.34,In,0,-fz));
+  const fk=new THREE.Group();fk.position.set(0,.25,fz);In.add(fk);pivots.push(fk);wheels.push(wh(.2,fk,-.25,0));
+  const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.14,.06),new THREE.MeshBasicMaterial({color:0xfff3b8}));
+  if(!sp){ // bobber: long, low, chrome, ape-hanger bars
+    bx(.3,.35,1.5,C,0,.3,-.2);bx(.4,.3,.6,C,0,.6,.15);bx(.4,.1,.7,0x5a3a22,0,.52,-.55);
+    bx(.12,.12,1.1,T,.22,.12,-.4);bx(.12,.12,1.1,T,-.22,.12,-.4);
+    bx(.06,.95,.06,T,.14,.2,0,fk);bx(.06,.95,.06,T,-.14,.2,0,fk);bx(.9,.06,.06,T,0,.72,0,fk);
+    bx(.5,.12,.8,0x6b4a2f,0,.95,0);bx(.42,.6,.3,0x6b4a2f,0,.95,-.5,In,-.25);ball(.2,0x222222,0,1.4,-.55);
+    lamp.position.set(0,.1,.1);fk.add(lamp);
+  }else{ // superbike: fairing, screen, crouched rider
+    bx(.34,.3,1.4,C,0,.35,-.1);bx(.5,.45,.7,C,0,.55,.5);bx(.3,.25,.7,C,0,.55,-.75);bx(.1,.02,1.3,T,0,.7,-.2);
+    bx(.4,.3,.05,0x9fd8ff,0,.88,.45,In,-.6);bx(.12,.12,.6,T,.22,.25,-.75);
+    bx(.06,.6,.06,T,.15,.1,0,fk);bx(.06,.6,.06,T,-.15,.1,0,fk);bx(.6,.06,.06,0x111111,0,.4,0,fk);
+    bx(.4,.4,.7,0x111827,0,.9,-.3,In,.85);ball(.2,T,0,1.05,.1);
+    lamp.position.set(0,.45,.3);fk.add(lamp);
+  }
+  return{g,wheels,pivots};
+}
 let carG,wheels,pivots;
 function setCar(i){
-  if(carG)scene.remove(carG);const m=makeCar(CARS[i]);carG=m.g;wheels=m.wheels;pivots=m.pivots;carG.visible=!car.dead;scene.add(carG);
+  if(carG)scene.remove(carG);const m=CARS[i].bike?makeRide(CARS[i]):makeCar(CARS[i]);carG=m.g;wheels=m.wheels;pivots=m.pivots;carG.visible=!car.dead;scene.add(carG);
 }
 
 /* ---------- particles, debris, snowfall ---------- */
@@ -335,7 +377,7 @@ function step(dt){
   for(const b of bots){if(b.dead)continue;const dx=p.x-b.x,dz=p.z-b.z;
     if(dx*dx+dz*dz<12&&Math.abs(p.y-b.y)<2.6){killBot(b);explode('BOT CRASH – BOTH BURN!');return}}
   for(const b of bikes){if(b.dead)continue;const dx=p.x-b.x,dz=p.z-b.z;
-    if(dx*dx+dz*dz<7.5&&Math.abs(p.y-b.y)<2.2){killBike(b);explode('A BIKE HIT YOU!');return}}
+    if(dx*dx+dz*dz<5&&Math.abs(p.y-b.y)<2.2){killBike(b);explode('A BIKE HIT YOU!');return}}
   car.safeT-=dt;U.set(0,1,0).applyQuaternion(car.q);
   if(car.grounded&&car.safeT<=0&&U.dot(nA)>.85){car.safe={x:p.x,z:p.z,yaw:car.yaw};car.safeT=1}
 }
@@ -362,10 +404,11 @@ function updHud(){
 const eq=c=>Math.round(15*c.acc*c.top/(15*c.acc+.05*c.top)*3.6);
 function renderShop(){
   $('sub').textContent='Your coins: '+S.coins.toLocaleString()+'  |  Multiplier x'+mult().toFixed(1);
-  $('grid').innerHTML=CARS.map(c=>{
+  const card=c=>{
     const own=S.owned.includes(c.id),sel=S.sel===c.id;
     const btn=sel?'<button disabled>Selected</button>':own?`<button data-i="${c.id}">Drive this car</button>`:S.coins>=c.price?`<button data-i="${c.id}">Buy for ${c.price.toLocaleString()} coins</button>`:`<button disabled>Need ${(c.price-S.coins).toLocaleString()} more coins</button>`;
-    return `<div class="card${sel?' sel':''}"><div class="sw" style="background:linear-gradient(90deg,${hex(c.color)},${hex(c.two||c.color)})"></div><h3>${c.name}</h3><small>${c.sub}, ${c.price?c.price.toLocaleString()+' coins':'Free'}</small><p>🪙 ${c.rate} coins per 10 m<br>Top speed ${c.mystery?'???':c.kmh} km/h</p>${btn}</div>`}).join('');
+    return `<div class="card${sel?' sel':''}"><div class="sw" style="background:linear-gradient(90deg,${hex(c.color)},${hex(c.two||c.color)})"></div><h3>${c.name}</h3><small>${c.sub}, ${c.price?c.price.toLocaleString()+' coins':'Free'}</small><p>🪙 ${c.rate} coins per 10 m<br>Top speed ${c.mystery?'???':c.kmh} km/h</p>${btn}</div>`};
+  $('grid').innerHTML='<div class="sec">Cars</div>'+CARS.filter(c=>!c.bike).map(card).join('')+'<div class="sec">Bikes</div>'+CARS.filter(c=>c.bike).map(card).join('');
 }
 $('grid').onclick=e=>{
   const b=e.target.closest('button');if(!b||b.disabled||!b.dataset.i)return;const c=CARS[+b.dataset.i];
@@ -373,6 +416,12 @@ $('grid').onclick=e=>{
   S.sel=c.id;CAR=c;setCar(c.id);$('cn').textContent=S.coins.toLocaleString();save();renderShop();
 };
 function openShop(o){paused=o;$('shop').style.display=o?'flex':'none';if(o){for(const k in K)K[k]=0;renderShop()}save()}
+addEventListener('contextmenu',e=>e.preventDefault());
+{const tmap={bL:'ArrowLeft',bR:'ArrowRight',bU:'ArrowUp',bD:'ArrowDown'};
+ for(const id in tmap){const el=$(id),set=v=>{K[tmap[id]]=v;el.classList.toggle('on',!!v)};
+  el.addEventListener('pointerdown',ev=>{ev.preventDefault();try{el.setPointerCapture(ev.pointerId)}catch(e){}set(1)});
+  for(const t of['pointerup','pointercancel','lostpointercapture'])el.addEventListener(t,()=>set(0))}
+ $('bRs').addEventListener('pointerdown',ev=>{ev.preventDefault();if(!paused)respawn(true)})}
 $('shopbtn').onclick=e=>{e.target.blur();openShop(true)};$('close').onclick=e=>{e.target.blur();openShop(false)};
 
 /* ---------- bot cars ---------- */
@@ -423,10 +472,14 @@ function spawnBike(b){
     const kind=Math.random()<.5?0:1,k=Math.round((kind?car.p.x:car.p.z)/RS)+Math.floor(R(-1,2)),u=(kind?car.p.z:car.p.x)+R(-340,340),r=rp(kind,k,u),d=Math.hypot(r[0]-car.p.x,r[1]-car.p.z);
     if((d>100&&d<330)||a===9){b.kind=kind;b.k=k;b.u=u;break}
   }
-  b.dir=Math.random()<.5?-1:1;b.lat=b.latT=4*b.dir;b.base=R(20,30);b.dead=false;b.near=false;b.g.visible=true;bikePlace(b);
+  b.dir=Math.random()<.5?-1:1;b.lat=b.latT=4*b.dir;b.base=R(12,18);b.dead=false;b.near=false;b.chase=false;b.g.visible=true;bikePlace(b);
 }
 for(const c of [0xff3b30,0x34c759,0xffcc00,0x0a84ff,0xff9f0a,0xbf5af2]){
   const m=makeBike(c);scene.add(m.g);const b={g:m.g,wheels:m.wheels,q:new THREE.Quaternion(),spin:0,t:0,col:c};spawnBike(b);bikes.push(b);
+}
+function dodged(){
+  S.coins+=50;$('cn').textContent=S.coins.toLocaleString();const e=$('plus');e.textContent='+50';e.style.opacity=1;clearTimeout(pt);pt=setTimeout(()=>e.style.opacity=0,900);
+  msg('Dodged a bike! +50 🪙',1500);save();
 }
 function killBike(b){b.dead=true;b.t=8;b.g.visible=false;blast(new THREE.Vector3(b.x,b.y,b.z),ZERO,b.col)}
 function stepBikes(dt){
@@ -436,25 +489,26 @@ function stepBikes(dt){
     const dist=Math.hypot(b.x-p.x,b.z-p.z);
     if(dist>400){spawnBike(b);continue}
     let aggr=false;
-    if(dist>=9){ // bikes commit to a line once they are almost on top of the car
-      if(!car.dead&&dist<40){
+    if(dist>=16){ // bikes commit to a line once they are almost on top of the car
+      if(!car.dead&&dist<38){
         const r=rp(b.kind,b.k,b.kind?p.z:p.x),pl=(p.x-r[0])*r[2]+(p.z-r[1])*r[3];
         if(Math.abs(pl)<16){b.latT=cl(pl,-13,13);aggr=true}
       }
       if(!aggr)b.latT=4*b.dir;
     }else aggr=b.latT!==4*b.dir;
-    b.lat+=cl(b.latT-b.lat,-5.5*dt,5.5*dt);
-    const sp=b.base*(aggr?1.2:1);b.u+=b.dir*sp*dt/b.L;b.spin+=sp*dt/.38;bikePlace(b);
+    b.lat+=cl(b.latT-b.lat,-4*dt,4*dt);
+    const sp=b.base;b.u+=b.dir*sp*dt/b.L;b.spin+=sp*dt/.38;bikePlace(b);
     for(const w of b.wheels)w.rotation.x=b.spin;
-    if(dist<9)b.near=true;else if(b.near&&dist>14){b.near=false;if(!car.dead)msg('Dodged a bike!',1000)}
+    if(aggr)b.chase=true;if(dist<9)b.near=true;else if(b.near&&dist>14){b.near=false;if(b.chase&&!car.dead)dodged();b.chase=false}
   }
 }
 
 /* ---------- camera, visuals, loop ---------- */
-let camYaw=0;const camT=new THREE.Vector3();
+const ZA=new THREE.Vector3(0,0,1),lq=new THREE.Quaternion();let camYaw=0;const camT=new THREE.Vector3();
 function visuals(dt){
   const p=car.p,v=car.v,spd=v.length();
   carG.position.copy(p);carG.quaternion.copy(car.q);
+  if(CAR.bike&&car.grounded){lq.setFromAxisAngle(ZA,car.steer*Math.min(1,spd/20)*.4);carG.quaternion.multiply(lq)}
   for(const w of wheels)w.rotation.x=car.spin;for(const pv of pivots)pv.rotation.y=car.steer*.45;
   updTerrain(p.x,p.z);updRoads(p.x,p.z);updTrees(p.x,p.z);
   sun.position.set(p.x+60,p.y+110,p.z+40);sun.target.position.copy(p);
